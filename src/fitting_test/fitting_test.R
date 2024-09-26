@@ -24,7 +24,7 @@ tic()
 ## Set parameters
 pars <- cowflu:::cowflu_inputs(
   alpha = 0.2,
-  beta = 0.9,
+  beta = 1.5,
   gamma = 0.1,
   sigma = 0.125,
   asc_rate = 1,
@@ -41,11 +41,20 @@ pars <- cowflu:::cowflu_inputs(
     likelihood_choice = "survival"))
 
 ## Set priors
+# prior <- monty::monty_dsl({
+#   alpha ~ Beta(a = 1, b = 25)
+#   beta ~ Uniform(min = 0.05, max = 4) #maybe 1 and 2.5
+#   gamma ~ Uniform(min = 0.05, max = 4) #0 and 1
+#   sigma ~ Uniform(min = 0.05, max = 5) #0 and 2
+#   asc_rate ~ Beta(a = 5, b = 1)
+#   #dispersion ~ Exponential(mean = 1)
+# })
+
 prior <- monty::monty_dsl({
   alpha ~ Beta(a = 1, b = 25)
-  beta ~ Uniform(min = 0.05, max = 4) #maybe 1 and 2.5
-  gamma ~ Uniform(min = 0.05, max = 4) #0 and 1
-  sigma ~ Uniform(min = 0.05, max = 5) #0 and 2
+  beta ~ Uniform(min = 1, max = 2.5) #maybe 1 and 2.5
+  gamma ~ Uniform(min = 0.05, max = 1) #0 and 1
+  sigma ~ Uniform(min = 0.05, max = 2) #0 and 2
   asc_rate ~ Beta(a = 5, b = 1)
   #dispersion ~ Exponential(mean = 1)
 })
@@ -67,7 +76,7 @@ set.seed(1)
 ## Build a particle filter
 data_week <- dust2::dust_filter_data(data_outbreaks, time = "week")
 filter <- dust2::dust_filter_create(cowflu:::cows(), 0, #0 is "time_start"
-                                    data_week, n_particles = n_particles, n_threads = 8,
+                                    data_week, n_particles = n_particles, n_threads = 32,
                                     dt=dt)
 ## Build a likelihood
 likelihood <- dust2::dust_likelihood_monty(filter, prior_packer)
