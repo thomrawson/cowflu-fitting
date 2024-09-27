@@ -1,0 +1,14 @@
+# Also use the ncov-ic universe
+repo::https://ncov-ic.r-universe.dev
+
+# Specific version of malaria simulation, via a tag
+mrc-ide/cowflu
+mrc-ide/monty
+mrc-ide/dust2
+mrc-ide/orderly2
+
+# Package from CRAN
+coda
+ggplot2
+gridExtra
+tictoc
