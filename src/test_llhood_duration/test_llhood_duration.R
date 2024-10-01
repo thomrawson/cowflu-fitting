@@ -1,6 +1,6 @@
 ##################################################################################################
 orderly2::orderly_strict_mode()
-orderly2::orderly_parameters(n_particles = 160, n_iterations = 100 , dt = 1)
+orderly2::orderly_parameters(n_particles = 160, n_iterations = 10, dt = 1)
 
 params <- c("alpha", "beta", "gamma", "sigma", "asc_rate")
 orderly2::orderly_artefact(description = "The dataframe", "n_particles_density_df.rds")
@@ -39,14 +39,14 @@ for(i in 1:n_iterations){
   if( (i %% 10) == 0){
     print(i)
   }
-  
-  filter <- dust2::dust_filter_create(cowflu:::cows(), 0, data_week, n_particles = n_particles, n_threads = 32,
+
+  filter <- dust2::dust_filter_create(cowflu:::cows(), 0, data_week, n_particles = n_particles, n_threads = 8,
                                       dt=dt)
-  
+
   hold_density <- dust2::dust_likelihood_run(filter, pars)
-  
+
   n_particles_density_df$density[i] <- hold_density
-  
+
 }
 
 saveRDS(n_particles_density_df, "n_particles_density_df.rds")
@@ -59,7 +59,7 @@ param_string <- sprintf("duration ran: %s mins\n
   n_particles: %s \n
   dt: %s ",   (duration$toc - duration$tic)/60,
                         n_iterations,
-                        n_particles, 
+                        n_particles,
                         dt)
 
 fileConn<-file("parameters_used.txt")
