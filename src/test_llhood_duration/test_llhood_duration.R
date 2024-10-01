@@ -1,10 +1,10 @@
 ##################################################################################################
 orderly2::orderly_strict_mode()
-orderly2::orderly_parameters(n_particles = 160, n_iterations = 10, dt = 1)
+orderly2::orderly_parameters(n_particles = 80, n_iterations = 100, dt = 1)
 
 params <- c("alpha", "beta", "gamma", "sigma", "asc_rate")
 orderly2::orderly_artefact(description = "The dataframe", "n_particles_density_df.rds")
-
+orderly2::orderly_artefact(description = "The histogram of the density", sprintf("histogram_plot_%s_particles.png", n_particles))
 orderly2::orderly_artefact(description = "The parameters used", "parameters_used.txt")
 
 ##################################################################################################
@@ -36,11 +36,11 @@ data <- cowflu:::process_data_outbreak(cowflu:::outbreaks_data$weekly_outbreaks_
 data_week <- dust2::dust_filter_data(data, time = "week")
 
 for(i in 1:n_iterations){
-  if( (i %% 10) == 0){
+  #if( (i %% 10) == 0){
     print(i)
-  }
+  #}
 
-  filter <- dust2::dust_filter_create(cowflu:::cows(), 0, data_week, n_particles = n_particles, n_threads = 8,
+  filter <- dust2::dust_filter_create(cowflu:::cows(), 0, data_week, n_particles = n_particles, n_threads = 32,
                                       dt=dt)
 
   hold_density <- dust2::dust_likelihood_run(filter, pars)
@@ -50,6 +50,13 @@ for(i in 1:n_iterations){
 }
 
 saveRDS(n_particles_density_df, "n_particles_density_df.rds")
+
+# Open a PNG device, specifying the file name
+png(sprintf("histogram_plot_%s_particles.png", n_particles), width = 800, height = 600)
+# Create the histogram
+hist(n_particles_density_df$density)
+# Close the PNG device to write the file
+dev.off()
 
 duration <- toc()
 ##################################################################################################
