@@ -53,6 +53,8 @@ Parameters_df$asc_rate <- qbeta(Parameters_df$asc_rate , shape1 = 5, shape2 = 1)
 data <- cowflu:::process_data_outbreak(cowflu:::outbreaks_data$weekly_outbreaks_data)
 data_week <- dust2::dust_filter_data(data, time = "week")
 
+filter <- dust2::dust_filter_create(cowflu:::cows(), 0, data_week, n_particles = n_particles, n_threads = 32,
+                                    dt=dt)
 ##Prep progress bar
 pb <- txtProgressBar(min = 0, max = LHS_samples, style = 3)
 
@@ -77,9 +79,9 @@ for( i in 1:LHS_samples){
                                ))
 
   hold_density <- 0
+
   for(j in 1:n_iterations){
-    filter <- dust2::dust_filter_create(cowflu:::cows(), 0, data_week, n_particles = n_particles, n_threads = 32,
-                                      dt=dt)
+
     hold_density <- hold_density + (dust2::dust_likelihood_run(filter, pars)/n_iterations)
   }
 
