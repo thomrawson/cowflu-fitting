@@ -43,11 +43,11 @@ Parameters_df$density <- rep(NA, LHS_samples)
 ## (also known as the quantile function) of the Beta distribution.
 ## Using the qbeta() function, which returns the quantile corresponding to a given
 ## probability (in this case, the uniform values)
-Parameters_df$alpha <- qbeta(Parameters_df$alpha , shape1 = 1, shape2 = 25)
-Parameters_df$beta <- 0.5 + (3 - 0.5) * Parameters_df$beta
-Parameters_df$gamma <- 0 + (2.5 - 0) * Parameters_df$gamma
-Parameters_df$sigma <- 0 + (4 - 0) * Parameters_df$sigma
-Parameters_df$asc_rate <- qbeta(Parameters_df$asc_rate , shape1 = 5, shape2 = 1)
+Parameters_df$alpha <- qbeta(Parameters_df$alpha , shape1 = 1, shape2 = 40)
+Parameters_df$beta <- 1 + (2.5 - 1) * Parameters_df$beta
+Parameters_df$gamma <- 0.5 + (3 - 0.5) * Parameters_df$gamma
+Parameters_df$sigma <- 0 + (3 - 0) * Parameters_df$sigma
+Parameters_df$asc_rate <- qbeta(Parameters_df$asc_rate , shape1 = 1, shape2 = 1)
 
 ## Prepare the data
 data <- cowflu:::process_data_outbreak(cowflu:::outbreaks_data$weekly_outbreaks_data)
