@@ -1,6 +1,6 @@
 ##################################################################################################
 orderly2::orderly_strict_mode()
-orderly2::orderly_parameters(LHS_samples = 100, n_particles = 160, n_iterations = 1, dt = 1)
+orderly2::orderly_parameters(LHS_samples = 10000, n_particles = 160, n_iterations = 1, dt = 1)
 
 params <- c("alpha", "beta", "gamma", "sigma", "asc_rate", "dispersion")
 orderly2::orderly_artefact(description = "The dataframe", "Parameters_df.rds")

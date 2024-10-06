@@ -1,6 +1,6 @@
 ##################################################################################################
 orderly2::orderly_strict_mode()
-orderly2::orderly_parameters(n_samples = 100, n_particles = 8, n_chains = 1, step_size_var = 0.03, dt = 1)
+orderly2::orderly_parameters(n_samples = 100, n_particles = 8, n_chains = 1, step_size_var = 0.03, dt = 1, restart = FALSE, rerun_every = 100)
 
 params <- c("alpha", "beta", "gamma", "sigma", "asc_rate", "dispersion")
 orderly2::orderly_artefact(description = "The posterior samples", "fitting_samples.rds")
@@ -83,7 +83,14 @@ likelihood <- dust2::dust_likelihood_monty(filter, prior_packer)
 posterior <- prior + likelihood
 
 ##Build the sampler
-sampler <- monty::monty_sampler_random_walk(diag(length(params) ) * step_size_var)  #0.02 was baseline
+if(restart){
+  sampler <- monty::monty_sampler_random_walk(diag(length(params) ) * step_size_var,
+                                              rerun_every = rerun_every,
+                                              rerun_random = TRUE)  #0.02 was baseline
+}else{
+  sampler <- monty::monty_sampler_random_walk(diag(length(params) ) * step_size_var)  #0.02 was baseline
+}
+
 
 ## Run the samples
 samples <- monty::monty_sample(posterior, sampler, n_samples, n_chains = n_chains,
@@ -120,10 +127,13 @@ param_string <- sprintf("duration ran: %s mins\n
   n_particles: %s \n
   n_chains: %s \n
   dt: %s \n
-  step_size_var: %s",   (duration$toc - duration$tic)/60,
+  step_size_var: %s \n
+  restarts:  %s \n
+  restart_every: %s",   (duration$toc - duration$tic)/60,
                         n_samples,
                         n_particles, n_chains,
-                        dt, step_size_var)
+                        dt, step_size_var,
+                        restart, rerun_every)
 
 fileConn<-file("parameters_used.txt")
 writeLines(param_string, fileConn)
