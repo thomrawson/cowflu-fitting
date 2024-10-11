@@ -1,6 +1,8 @@
 ##################################################################################################
 orderly2::orderly_strict_mode()
-orderly2::orderly_parameters(n_samples = 100, n_particles = 8, n_chains = 1, step_size_var = 0.03, dt = 1, restart = FALSE, rerun_every = 100)
+orderly2::orderly_parameters(n_samples = 100, n_particles = 8, n_chains = 2, step_size_var = 0.03, dt = 1,
+                             restart = FALSE, rerun_every = 100,
+                             save_history = c("outbreak_region", "infected_herds_region"))
 
 params <- c("alpha", "beta", "gamma", "sigma", "asc_rate")
 orderly2::orderly_artefact(description = "The posterior samples", "fitting_samples.rds")
@@ -61,7 +63,7 @@ prior <- monty::monty_dsl({
 })
 
 ## Pack the priors
-pars_fixed <- pars[-(15:19)]
+pars_fixed <- pars[-(16:20)]
 prior_packer <- monty::monty_packer(c("alpha", "beta", "gamma", "sigma", "asc_rate"), fixed = pars_fixed)
 
 ## With this packer we can convert from a list of name-value pairs suitable for
@@ -78,7 +80,13 @@ filter <- dust2::dust_filter_create(cowflu:::cows(), 0, #0 is "time_start"
                                     data_week, n_particles = n_particles, n_threads = 32,
                                     dt=dt)
 ## Build a likelihood
-likelihood <- dust2::dust_likelihood_monty(filter, prior_packer)
+## History save options are:
+##  "S_herd"  "S_region" "E_herd" "E_region"  "I_herd"  "I_region"  "R_herd"  "R_region"
+##  "outbreak_herd" "outbreak_region"
+likelihood <- dust2::dust_likelihood_monty(filter, prior_packer,
+                                           save_state = FALSE,
+                                           save_history = save_history)
+
 ## We can combine the prior and the likelihood to create a posterior:
 posterior <- prior + likelihood
 
@@ -90,9 +98,11 @@ if(restart){
 }else{
   sampler <- monty::monty_sampler_random_walk(diag(5) * step_size_var)  #0.02 was baseline
 }
+
+
 ## Run the samples
 samples <- monty::monty_sample(posterior, sampler, n_samples, n_chains = n_chains,
-                               initial = prior_packer$pack(pars))
+                               initial = prior_packer$pack(pars) )
 saveRDS(samples, "fitting_samples.rds")
 
 ##################################################################################################
@@ -116,9 +126,13 @@ for(i in 1:length(params)){
 }
 
 dev.off()
-
-duration <- toc()
 ##################################################################################################
+## Here we plot the assoc. trajectories too.
+
+
+
+##################################################################################################
+duration <- toc()
 ## Print an output .txt of the parameters used:
 param_string <- sprintf("duration ran: %s mins\n
   n_samples: %s \n
@@ -127,11 +141,13 @@ param_string <- sprintf("duration ran: %s mins\n
   dt: %s \n
   step_size_var: %s \n
   restarts:  %s \n
-  restart_every: %s",   (duration$toc - duration$tic)/60,
+  restart_every: %s \n
+  save_history:  %s",   (duration$toc - duration$tic)/60,
                         n_samples,
                         n_particles, n_chains,
                         dt, step_size_var,
-                        restart, rerun_every)
+                        restart, rerun_every,
+                        save_history)
 
 fileConn<-file("parameters_used.txt")
 writeLines(param_string, fileConn)
