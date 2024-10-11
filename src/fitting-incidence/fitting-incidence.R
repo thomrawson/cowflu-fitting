@@ -13,6 +13,17 @@ for(i in 1:length(params)){
   orderly2::orderly_artefact(description = "Posterior density", sprintf("Posterior_densities//%s_plot.png", params[i]))
   orderly2::orderly_artefact(description = "Posterior trajectories", sprintf("Posterior_chains//%s_plot.png", params[i]))
 }
+orderly2::orderly_artefact(description = "MCMC diagnostics", "mcmc_diagnostics.txt")
+
+orderly2::orderly_artefact(description = "Fits to data", "Fit_to_data/Infected_Herds_1.png")
+orderly2::orderly_artefact(description = "Fits to data", "Fit_to_data/Infected_Proportion_Herds_1.png")
+orderly2::orderly_artefact(description = "Fits to data", "Fit_to_data/Infected_Herds_2.png")
+orderly2::orderly_artefact(description = "Fits to data", "Fit_to_data/Infected_Proportion_Herds_2.png")
+
+orderly2::orderly_artefact(description = "Fits to data", "Fit_to_data/Declared_Infected_Herds_1.png")
+orderly2::orderly_artefact(description = "Fits to data", "Fit_to_data/Declared_Infected_Proportion_Herds_1.png")
+orderly2::orderly_artefact(description = "Fits to data", "Fit_to_data/Declared_Infected_Herds_2.png")
+orderly2::orderly_artefact(description = "Fits to data", "Fit_to_data/Declared_Infected_Proportion_Herds_2.png")
 ##################################################################################################
 library(cowflu)
 library(dust2)
@@ -20,6 +31,9 @@ library(monty)
 library(ggplot2)
 library(gridExtra)
 library(tictoc)
+library(coda)
+library(dplyr)
+library(tidyr)
 tic()
 ##################################################################################################
 ## Set parameters
@@ -103,9 +117,180 @@ if(restart){
 samples <- monty::monty_sample(posterior, sampler, n_samples, n_chains = n_chains,
                                initial = prior_packer$pack(pars))
 saveRDS(samples, "fitting_samples.rds")
-
 ##################################################################################################
-## Plotting
+## Fit to data plotting
+dir.create("Fit_to_data")
+plot_indices <- list(first = c(1,25), second = c(26,48))
+
+## First, the TRUE number of infected herds per state:
+for(i in 1:length(plot_indices)){
+  regions_to_plot <- plot_indices[[i]]
+  regions_to_plot <- regions_to_plot[1]:regions_to_plot[2]
+  n_states <- length(regions_to_plot)
+
+  ## Extract the  data across all chains and iterations
+  I_data <- samples$observations$history[49:96,,,]
+  n_timepoints <- dim(I_data)[2]
+  ## Reshape the array by collapsing dimensions 3 and 4
+  I_data <- array(I_data, dim = c(48, n_timepoints, n_samples * n_chains))
+  I_data <- I_data[regions_to_plot, , ]
+  ## Initialize an empty list to store data frames for each state
+  data_list <- list()
+  ## Loop over each state and calculate summary statistics
+  for (state in 1:n_states) {
+    ## Extract data for the current state
+    state_data <- I_data[state, , ]
+    ## Calculate mean, lower, and upper CI across particles for each time point
+    state_summary <- apply(state_data, 1, function(x) {
+      mean_val <- mean(x)
+      ci_low <- quantile(x, 0.025)
+      ci_high <- quantile(x, 0.975)
+      return(c(mean = mean_val, lower_ci = ci_low, upper_ci = ci_high))
+    })
+    ## Convert to a data frame
+    state_df <- as.data.frame(t(state_summary))
+    ## Add time and state information
+    state_df$Time <- data_week$week
+    state_df$US_state <- state
+    ## Append to the list
+    data_list[[state]] <- state_df
+  }
+
+  ## Combine all state data frames into one data frame
+  result_df <- dplyr::bind_rows(data_list)
+
+  ## Rename columns
+  colnames(result_df) <- c("mean_infected", "lower_ci_infected", "upper_ci_infected", "Time", "US_state")
+  ## Add number of herds per state:
+  result_df$total_herds <- cowflu:::usda_data$n_herds_per_region[result_df$US_state]
+  ## Replace the US_state numbers with actual names
+  result_df$US_state <- factor(result_df$US_state, levels = 1:n_states, labels = cowflu:::usda_data$US_States[regions_to_plot])
+
+  ## Create the plot
+  ggplot(result_df, aes(x = Time, y = mean_infected, group = US_state)) +
+    geom_line() +
+    geom_ribbon(aes(ymin = lower_ci_infected, ymax = upper_ci_infected), alpha = 0.2) +
+    facet_wrap(~ US_state, ncol = 5, scales = "free_y") +
+    theme_minimal() +
+    labs(x = "Time (Weeks)", y = "Infected Herds", title = "Infected Herds per state") +
+    theme(strip.text = element_text(size = 8)) +
+    theme(
+      plot.background = element_rect(fill = "white", color = NA),
+      panel.background = element_rect(fill = "white", color = NA)
+    ) -> my_plot
+
+  ## Create the proportion plot
+  ggplot(result_df, aes(x = Time, y = mean_infected/total_herds, group = US_state)) +
+    geom_line() +
+    geom_ribbon(aes(ymin = lower_ci_infected/total_herds, ymax = upper_ci_infected/total_herds), alpha = 0.2) +
+    facet_wrap(~ US_state, ncol = 5, scales = "free_y") +
+    theme_minimal() +
+    labs(x = "Time (Weeks)", y = "Infected Proportion of Herds", title = "Infected Proportion of Herds by state") +
+    theme(strip.text = element_text(size = 8)) +
+    theme(
+      plot.background = element_rect(fill = "white", color = NA),
+      panel.background = element_rect(fill = "white", color = NA)
+    ) -> my_plot_prop
+
+  file_path <- sprintf("Fit_to_data/Infected_Herds_%s.png", i)
+  ggsave(filename = file_path, plot = my_plot, width = 1280/96, height = 720/96, dpi = 200)
+  file_path <- sprintf("Fit_to_data/Infected_Proportion_Herds_%s.png", i)
+  ggsave(filename = file_path, plot = my_plot_prop, width = 1280/96, height = 720/96, dpi = 200)
+}
+
+######################
+### Now do the same, but for outbreaks declared, and show the fit to data.
+## We will need to reorder the data into a data frame:
+real_outbreaks_data <- data_week %>%
+  tidyr::unnest_longer(positive_tests) %>%
+  mutate(state = rep(cowflu:::usda_data$US_States, times = nrow(data_week)))
+real_outbreaks_data <- real_outbreaks_data[,c(2,3,4)]
+colnames(real_outbreaks_data) <- c("Time", "positive_tests", "US_state")
+
+plot_indices <- list(first = c(1,25), second = c(26,48))
+for(i in 1:length(plot_indices)){
+  regions_to_plot <- plot_indices[[i]]
+  regions_to_plot <- regions_to_plot[1]:regions_to_plot[2]
+  n_states <- length(regions_to_plot)
+
+  ## Extract the  data across all chains and iterations
+  I_data <- samples$observations$history[1:48,,,]
+  n_timepoints <- dim(I_data)[2]
+  ## Reshape the array by collapsing dimensions 3 and 4
+  I_data <- array(I_data, dim = c(48, n_timepoints, n_samples * n_chains))
+  I_data <- I_data[regions_to_plot, , ]
+  ## Initialize an empty list to store data frames for each state
+  data_list <- list()
+  ## Loop over each state and calculate summary statistics
+  for (state in 1:n_states) {
+    ## Extract data for the current state
+    state_data <- I_data[state, , ]
+    ## Calculate mean, lower, and upper CI across particles for each time point
+    state_summary <- apply(state_data, 1, function(x) {
+      mean_val <- mean(x)
+      ci_low <- quantile(x, 0.025)
+      ci_high <- quantile(x, 0.975)
+      return(c(mean = mean_val, lower_ci = ci_low, upper_ci = ci_high))
+    })
+    ## Convert to a data frame
+    state_df <- as.data.frame(t(state_summary))
+    ## Add time and state information
+    state_df$Time <- data_week$week
+    state_df$US_state <- state
+    ## Append to the list
+    data_list[[state]] <- state_df
+  }
+
+  ## Combine all state data frames into one data frame
+  result_df <- dplyr::bind_rows(data_list)
+
+  ## Rename columns
+  colnames(result_df) <- c("mean_infected", "lower_ci_infected", "upper_ci_infected", "Time", "US_state")
+  ## Add number of herds per state:
+  result_df$total_herds <- cowflu:::usda_data$n_herds_per_region[result_df$US_state]
+  ## Replace the US_state numbers with actual names
+  result_df$US_state <- factor(result_df$US_state, levels = 1:n_states, labels = cowflu:::usda_data$US_States[regions_to_plot])
+
+  ## Filter the data we fit to:
+  specific_plot_outbreaks_data <- filter(real_outbreaks_data, US_state %in% cowflu:::usda_data$US_States[regions_to_plot])
+
+  ## Create the plot
+  ggplot(result_df, aes(x = Time, y = mean_infected, group = US_state)) +
+    geom_line() +
+    geom_ribbon(aes(ymin = lower_ci_infected, ymax = upper_ci_infected), alpha = 0.2) +
+    geom_point(data = specific_plot_outbreaks_data,
+               aes(x = Time, y = positive_tests, group = US_state), col = "red") +
+    facet_wrap(~ US_state, ncol = 5, scales = "free_y") +
+    theme_minimal() +
+    labs(x = "Time (Weeks)", y = "Declared Infected Herds", title = "Declared Infected Herds per state") +
+    theme(strip.text = element_text(size = 8)) +
+    theme(
+      plot.background = element_rect(fill = "white", color = NA),
+      panel.background = element_rect(fill = "white", color = NA)
+    ) -> my_plot
+
+  ## Create the proportion plot
+  ggplot(result_df, aes(x = Time, y = mean_infected/total_herds, group = US_state)) +
+    geom_line() +
+    geom_ribbon(aes(ymin = lower_ci_infected/total_herds, ymax = upper_ci_infected/total_herds), alpha = 0.2) +
+    geom_point(data = specific_plot_outbreaks_data,
+               aes(x = Time, y = positive_tests/total_herds, group = US_state), col = "red") +
+    facet_wrap(~ US_state, ncol = 5, scales = "free_y") +
+    theme_minimal() +
+    labs(x = "Time (Weeks)", y = "Declared Infected Proportion of Herds", title = "Declared Infected Proportion of Herds by state") +
+    theme(strip.text = element_text(size = 8)) +
+    theme(
+      plot.background = element_rect(fill = "white", color = NA),
+      panel.background = element_rect(fill = "white", color = NA)
+    ) -> my_plot_prop
+
+  file_path <- sprintf("Fit_to_data/Declared_Infected_Herds_%s.png", i)
+  ggsave(filename = file_path, plot = my_plot, width = 1280/96, height = 720/96, dpi = 200)
+  file_path <- sprintf("Fit_to_data/Declared_Infected_Proportion_Herds_%s.png", i)
+  ggsave(filename = file_path, plot = my_plot_prop, width = 1280/96, height = 720/96, dpi = 200)
+}
+##################################################################################################
+## Diagnostic Plotting
 
 dir.create("Posterior_densities")
 dir.create("Posterior_chains")
@@ -126,6 +311,25 @@ for(i in 1:length(params)){
 
 dev.off()
 
+## Convert to coda object:
+samples_coda <- coda::as.mcmc.list(samples)
+#coda::gelman.plot(samples_coda)
+## Calculate Effective Sample Sizes (ESS)
+ess <- coda::effectiveSize(samples_coda)
+results <- data.frame(ESS = ess)
+## Calculate PSRF (Potential Scale Reduction Factor)
+## This can fail for very small trial runs:
+tryCatch({
+  # Code that may throw an error
+  psrf <- coda::gelman.diag(samples_coda)$psrf
+  results <- data.frame(ESS = ess, PSRF = psrf[,1], PSRF_95CI = psrf[,2])
+}, error = function(e) {
+  # Code to run if there's an error
+  cat("An error occurred, the leading minor of order 3 is not positive.\n")
+})
+
+## Write the results to a .txt file
+write.table(results, file = "mcmc_diagnostics.txt", sep = "\t", col.names = TRUE, row.names = TRUE)
 
 ##################################################################################################
 duration <- toc()
