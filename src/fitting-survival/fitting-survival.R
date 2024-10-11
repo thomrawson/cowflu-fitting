@@ -1,8 +1,7 @@
 ##################################################################################################
 orderly2::orderly_strict_mode()
 orderly2::orderly_parameters(n_samples = 100, n_particles = 8, n_chains = 2, step_size_var = 0.03, dt = 1,
-                             restart = FALSE, rerun_every = 100,
-                             save_history = c("outbreak_region", "infected_herds_region"))
+                             restart = FALSE, rerun_every = 100))
 
 params <- c("alpha", "beta", "gamma", "sigma", "asc_rate")
 orderly2::orderly_artefact(description = "The posterior samples", "fitting_samples.rds")
@@ -85,7 +84,7 @@ filter <- dust2::dust_filter_create(cowflu:::cows(), 0, #0 is "time_start"
 ##  "outbreak_herd" "outbreak_region"
 likelihood <- dust2::dust_likelihood_monty(filter, prior_packer,
                                            save_state = FALSE,
-                                           save_history = save_history)
+                                           save_history = c("outbreak_region", "infected_herds_region"))
 
 ## We can combine the prior and the likelihood to create a posterior:
 posterior <- prior + likelihood
@@ -141,13 +140,11 @@ param_string <- sprintf("duration ran: %s mins\n
   dt: %s \n
   step_size_var: %s \n
   restarts:  %s \n
-  restart_every: %s \n
-  save_history:  %s",   (duration$toc - duration$tic)/60,
+  restart_every: %s ",   (duration$toc - duration$tic)/60,
                         n_samples,
                         n_particles, n_chains,
                         dt, step_size_var,
-                        restart, rerun_every,
-                        save_history)
+                        restart, rerun_every)
 
 fileConn<-file("parameters_used.txt")
 writeLines(param_string, fileConn)
