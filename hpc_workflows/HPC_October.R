@@ -245,3 +245,40 @@ task_log_show(Fourth_Incidence)
 task_info(Fourth_Incidence)$times
 
 ######################################
+######################################
+## This is some more llhood/particles experimenting
+particle_test_1 <- task_create_expr(orderly2::orderly_run("compare-particle-incidence",
+                                                          parameters = list(n_iterations = 10,
+                                                                            min_particles = 32,
+                                                                            max_particles = 640,
+                                                                            total_particles = 3)),
+                                    resources = resources)
+task_status(particle_test_1)
+task_log_show(particle_test_1)
+
+particle_test_2 <- task_create_expr(orderly2::orderly_run("compare-particle-incidence",
+                                                          parameters = list(n_iterations = 100,
+                                                                            min_particles = 32,
+                                                                            max_particles = 640,
+                                                                            total_particles = 3)),
+                                    resources = resources)
+task_status(particle_test_2)
+task_log_show(particle_test_2)
+
+particle_test_1b <- task_create_expr(orderly2::orderly_run("compare-particle-survival",
+                                                          parameters = list(n_iterations = 10,
+                                                                            min_particles = 32,
+                                                                            max_particles = 640,
+                                                                            total_particles = 3)),
+                                    resources = resources)
+task_status(particle_test_1b)
+task_log_show(particle_test_1b)
+
+particle_test_2b <- task_create_expr(orderly2::orderly_run("compare-particle-survival",
+                                                          parameters = list(n_iterations = 100,
+                                                                            min_particles = 32,
+                                                                            max_particles = 640,
+                                                                            total_particles = 3)),
+                                    resources = resources)
+task_status(particle_test_2b)
+task_log_show(particle_test_2b)
