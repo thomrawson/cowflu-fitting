@@ -7,10 +7,12 @@ orderly2::orderly_artefact(description = "Variance plot", "var_plot_survival.png
 orderly2::orderly_artefact(description = "Log Variance plot", "log_var_plot_survival.png")
 orderly2::orderly_artefact(description = "Mean llhood plot", "mean_plot_survival.png")
 orderly2::orderly_artefact(description = "The dataframe", "n_particles_density_df.rds")
+orderly2::orderly_artefact(description = "The parameters used", "parameters_used.txt")
 ##################################################################################################
 
 library(cowflu)
-
+library(tictoc)
+tic()
 ## Identifying optimal n_particles:
 
 ## We're going to measure how variance in density estimates decreases as n_particles goes up.
@@ -96,3 +98,20 @@ ggplot(n_particles_density_df) +
 ggsave("mean_plot_survival.png", mean_plot, width = 20, height = 20, units = "cm")
 
 saveRDS(n_particles_density_df, "n_particles_density_df.rds")
+
+###############################################################
+duration <- toc()
+## Print an output .txt of the parameters used:
+param_string <- sprintf("duration ran: %s mins\n
+  n_iterations: %s \n
+  min_particles: %s \n
+  max_particles: %s \n
+  dt: %s \n
+  total_particles: %s ",   (duration$toc - duration$tic)/60,
+                        n_iterations,
+                        min_particles, max_particles,
+                        dt, total_particles)
+
+fileConn<-file("parameters_used.txt")
+writeLines(param_string, fileConn)
+close(fileConn)
