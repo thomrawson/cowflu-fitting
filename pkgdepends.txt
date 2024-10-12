@@ -3,7 +3,7 @@ repo::https://ncov-ic.r-universe.dev
 
 # Specific version of malaria simulation, via a tag
 mrc-ide/cowflu
-mrc-ide/monty
+mrc-ide/monty@implement-rerun
 mrc-ide/dust2
 mrc-ide/orderly2
 
@@ -12,3 +12,4 @@ coda
 ggplot2
 gridExtra
 tictoc
+lhs
