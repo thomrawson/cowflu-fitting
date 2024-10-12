@@ -85,6 +85,30 @@ prior_packer$pack(pars)
 
 ## Load data to fit to
 data_outbreaks <- cowflu:::process_data_incidence(cowflu:::outbreaks_data$weekly_outbreaks_data)
+## Add extra "NA" weeks to output the model fit to these.
+
+## Generate rows for weeks 1-13
+weeks_1_to_13 <- data.frame(
+  day = seq(7, 7 * 13, by = 7),   # Days: 7, 14, 21, ..., 91
+  week = 1:13,                    # Weeks 1 to 13
+  positive_tests = I(lapply(1:13, function(x) rep(NA_real_, 48)))  # 48 NAs in each row
+)
+
+## Generate rows to fill to week 50
+last_day <- max(data_outbreaks$day)  # Find the last day in the current data
+last_week <- max(data_outbreaks$week)  # Find the last week in the current data
+
+## Create the data frame to week 50
+weeks_to_50 <- data.frame(
+  day = seq(last_day + 7, last_day + 7 * (50 - last_week), by = 7),
+  week = (last_week + 1):50,
+  positive_tests = I(lapply((last_week + 1):50, function(x) rep(NA_real_, 48)))
+)
+
+## Append the new rows to the original data
+data_outbreaks <- rbind(weeks_1_to_13, data_outbreaks, weeks_to_50)
+
+
 set.seed(1)
 
 ## Build a particle filter
@@ -203,9 +227,10 @@ for(i in 1:length(plot_indices)){
 ## We will need to reorder the data into a data frame:
 real_outbreaks_data <- data_week %>%
   tidyr::unnest_longer(positive_tests) %>%
-  mutate(state = rep(cowflu:::usda_data$US_States, times = nrow(data_week)))
-real_outbreaks_data <- real_outbreaks_data[,c(2,3,4)]
-colnames(real_outbreaks_data) <- c("Time", "positive_tests", "US_state")
+  mutate(state = rep(cowflu:::usda_data$US_States, times = nrow(data_week)),
+         total_herds = rep(cowflu:::usda_data$n_herds_per_region, times = nrow(data_week)))
+real_outbreaks_data <- real_outbreaks_data[,c(2,3,4,5)]
+colnames(real_outbreaks_data) <- c("Time", "positive_tests", "US_state", "total_herds")
 
 plot_indices <- list(first = c(1,25), second = c(26,48))
 for(i in 1:length(plot_indices)){
@@ -273,7 +298,8 @@ for(i in 1:length(plot_indices)){
   ggplot(result_df, aes(x = Time, y = mean_infected/total_herds, group = US_state)) +
     geom_line() +
     geom_ribbon(aes(ymin = lower_ci_infected/total_herds, ymax = upper_ci_infected/total_herds), alpha = 0.2) +
-    geom_point(data = specific_plot_outbreaks_data,
+    geom_point(data = filter(specific_plot_outbreaks_data,
+                             !is.na(positive_tests)),
                aes(x = Time, y = positive_tests/total_herds, group = US_state), col = "red") +
     facet_wrap(~ US_state, ncol = 5, scales = "free_y") +
     theme_minimal() +
