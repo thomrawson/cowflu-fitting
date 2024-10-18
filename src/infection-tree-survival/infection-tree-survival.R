@@ -149,6 +149,7 @@ for(i in 1:length(plot_indices)){
     theme_minimal() +
     labs(x = "Time (Weeks)", y = "Infected Proportion of Herds", title = "Infected Proportion of Herds by state") +
     theme(strip.text = element_text(size = 8)) +
+    ylim(c(0,1)) +
     theme(
       plot.background = element_rect(fill = "white", color = NA),
       panel.background = element_rect(fill = "white", color = NA)
