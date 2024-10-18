@@ -473,45 +473,58 @@ ggsave(filename = "Trajectory_plots/True_infected_herds.png",
 ##################################################################################################
 ## Calculate the 95% CIs for the differences of the counterfactuals
 No_measures_Realtime_infected <- Realtime_infected2 - Realtime_infected1
-No_measures_Confirmed_outbreaks <- Confirmed_outbreaks2 - Confirmed_outbreaks1
+#No_measures_Confirmed_outbreaks <- Confirmed_outbreaks2 - Confirmed_outbreaks1
 No_measures_True_infected_herds <- True_infected_herds2 - True_infected_herds1
 No_measures_Total_infected <- Total_infected2 - Total_infected1
 
 Stronger_measures_Realtime_infected <- Realtime_infected3 - Realtime_infected1
-Stronger_measures_Confirmed_outbreaks <- Confirmed_outbreaks3 - Confirmed_outbreaks1
+#Stronger_measures_Confirmed_outbreaks <- Confirmed_outbreaks3 - Confirmed_outbreaks1
 Stronger_measures_True_infected_herds <- True_infected_herds3 - True_infected_herds1
 Stronger_measures_Total_infected <- Total_infected3 - Total_infected1
 
+## Note, if we want to export the total amount of "declared outbreaks" we need to do cumsum
+Stronger_measures_Confirmed_outbreaks <- t(apply(Confirmed_outbreaks3, 1, cumsum)) - t(apply(Confirmed_outbreaks1, 1, cumsum))
+No_measures_Confirmed_outbreaks <- t(apply(Confirmed_outbreaks2, 1, cumsum)) - t(apply(Confirmed_outbreaks1, 1, cumsum))
+
+
 ## Export in a data frame
-Counterfactual_differences <- data.frame( measures = rep(c("No measures", "Stronger measures"),4),
-                                          metric = c(rep("Realtime_infected",2),
-                                                     rep("Confirmed_outbreaks",2),
-                                                     rep("Declared_infected_herds",2),
-                                                     rep("Total_infected",2)),
-                                          mean_value = c(mean(No_measures_Realtime_infected),
-                                                         mean(Stronger_measures_Realtime_infected),
-                                                         mean(No_measures_Confirmed_outbreaks),
-                                                         mean(Stronger_measures_Confirmed_outbreaks),
-                                                         mean(No_measures_True_infected_herds),
-                                                         mean(Stronger_measures_True_infected_herds),
-                                                         mean(No_measures_Total_infected),
-                                                         mean(Stronger_measures_Total_infected)),
-                                          lower_value = c(quantile(No_measures_Realtime_infected, 0.025),
-                                                          quantile(Stronger_measures_Realtime_infected, 0.025),
-                                                          quantile(No_measures_Confirmed_outbreaks, 0.025),
-                                                          quantile(Stronger_measures_Confirmed_outbreaks, 0.025),
-                                                          quantile(No_measures_True_infected_herds, 0.025),
-                                                          quantile(Stronger_measures_True_infected_herds, 0.025),
-                                                          quantile(No_measures_Total_infected, 0.025),
-                                                          quantile(Stronger_measures_Total_infected, 0.025)),
-                                          upper_value = c(quantile(No_measures_Realtime_infected, 0.975),
-                                                          quantile(Stronger_measures_Realtime_infected, 0.975),
-                                                          quantile(No_measures_Confirmed_outbreaks, 0.975),
-                                                          quantile(Stronger_measures_Confirmed_outbreaks, 0.975),
-                                                          quantile(No_measures_True_infected_herds, 0.975),
-                                                          quantile(Stronger_measures_True_infected_herds, 0.975),
-                                                          quantile(No_measures_Total_infected, 0.975),
-                                                          quantile(Stronger_measures_Total_infected, 0.975))
+Counterfactual_differences <- data.frame( measures = c(#"No measures", "No measures",
+                                                           "No measures", "No measures",
+                                                           #"Stronger measures", "Stronger measures",
+                                                           "Stronger measures", "Stronger measures"),
+                                          metric = rep(c(#"Realtime_infected",
+                                                     "Declared_outbreaks",
+                                                     #"True_infected_herds",
+                                                     "Total_infected"),2),
+                                          mean_value = c(#mean(No_measures_Realtime_infected),
+                                                         mean(No_measures_Confirmed_outbreaks[,51]),
+                                                         #mean(No_measures_True_infected_herds),
+                                                         mean(No_measures_Total_infected[,51]),
+
+                                                         #mean(Stronger_measures_Realtime_infected),
+                                                         mean(Stronger_measures_Confirmed_outbreaks[,51]),
+                                                         #mean(Stronger_measures_True_infected_herds),
+                                                         mean(Stronger_measures_Total_infected[,51])),
+
+                                          lower_value = c(#quantile(No_measures_Realtime_infected, 0.025),
+                                                          quantile(No_measures_Confirmed_outbreaks[,51], 0.025),
+                                                          #quantile(No_measures_True_infected_herds, 0.025),
+                                                          quantile(No_measures_Total_infected[,51], 0.025),
+
+                                                          #quantile(Stronger_measures_Realtime_infected, 0.025),
+                                                          quantile(Stronger_measures_Confirmed_outbreaks[,51], 0.025),
+                                                          #quantile(Stronger_measures_True_infected_herds, 0.025),
+                                                          quantile(Stronger_measures_Total_infected[,51], 0.025)),
+
+                                          upper_value = c(#quantile(No_measures_Realtime_infected, 0.975),
+                                                          quantile(No_measures_Confirmed_outbreaks[,51], 0.975),
+                                                          #quantile(No_measures_True_infected_herds, 0.975),
+                                                          quantile(No_measures_Total_infected[,51], 0.975),
+
+                                                          #quantile(Stronger_measures_Realtime_infected, 0.975),
+                                                          quantile(Stronger_measures_Confirmed_outbreaks[,51], 0.975),
+                                                          #quantile(Stronger_measures_True_infected_herds, 0.975),
+                                                          quantile(Stronger_measures_Total_infected[,51], 0.975))
                                           )
 write.csv(Counterfactual_differences, "Counterfactual_differences.csv", row.names = FALSE)
 
