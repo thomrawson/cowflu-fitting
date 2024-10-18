@@ -42,7 +42,7 @@ burn_in_steps <- 401
 total_steps <- dim(samples)[2]
 samples <- samples[, burn_in_steps:total_steps, ]
 ## Collapse chains together:
-dim(samples) <- c(5, dim(samples)[2]*dim(samples)[3])
+dim(samples) <- c(6, dim(samples)[2]*dim(samples)[3])
 set.seed(1)
 
 ## We can't run for all, filter to how many we want
