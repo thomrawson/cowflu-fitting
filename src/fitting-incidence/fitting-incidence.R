@@ -1,7 +1,8 @@
 ##################################################################################################
 orderly2::orderly_strict_mode()
 orderly2::orderly_parameters(n_samples = 100, n_particles = 8, n_chains = 2, step_size_var = 0.03, dt = 1,
-                             restart = FALSE, rerun_every = 100)
+                             restart = FALSE, rerun_every = 100,
+                             include_NAs = TRUE)
 
 params <- c("alpha", "beta", "gamma", "sigma", "asc_rate", "dispersion")
 orderly2::orderly_artefact(description = "The posterior samples", "fitting_samples.rds")
@@ -67,12 +68,12 @@ pars <- cowflu:::cowflu_inputs(
 # })
 
 prior <- monty::monty_dsl({
-  alpha ~ Beta(a = 1, b = 25)
-  beta ~ Uniform(min = 1, max = 3) #maybe 1 and 2.5
+  alpha ~ Uniform(min = 0, max = 0.1)
+  beta ~ Uniform(min = 0.05, max = 3) #maybe 1 and 2.5
   gamma ~ Uniform(min = 0.05, max = 2) #0 and 1
-  sigma ~ Uniform(min = 0.05, max = 4) #0 and 2
-  asc_rate ~ Beta(a = 5, b = 1)
-  dispersion ~ Exponential(mean = 1)
+  sigma ~ Uniform(min = 0.05, max = 2) #0 and 2
+  asc_rate ~ Beta(a = 1, b = 1)
+  #dispersion ~ Exponential(mean = 1)
 })
 
 ## Pack the priors
@@ -86,7 +87,7 @@ prior_packer$pack(pars)
 ## Load data to fit to
 data_outbreaks <- cowflu:::process_data_incidence(cowflu:::outbreaks_data$weekly_outbreaks_data)
 ## Add extra "NA" weeks to output the model fit to these.
-
+if(include_NAs){
 ## Generate rows for weeks 1-13
 weeks_1_to_13 <- data.frame(
   day = seq(7, 7 * 13, by = 7),   # Days: 7, 14, 21, ..., 91
@@ -107,7 +108,7 @@ weeks_to_50 <- data.frame(
 
 ## Append the new rows to the original data
 data_outbreaks <- rbind(weeks_1_to_13, data_outbreaks, weeks_to_50)
-
+}
 
 set.seed(1)
 

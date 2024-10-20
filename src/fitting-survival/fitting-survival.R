@@ -1,7 +1,8 @@
 ##################################################################################################
 orderly2::orderly_strict_mode()
 orderly2::orderly_parameters(n_samples = 100, n_particles = 8, n_chains = 2, step_size_var = 0.03, dt = 1,
-                             restart = FALSE, rerun_every = 100)
+                             restart = FALSE, rerun_every = 100,
+                             include_NAs = TRUE)
 
 params <- c("alpha", "beta", "gamma", "sigma", "asc_rate")
 orderly2::orderly_artefact(description = "The posterior samples", "fitting_samples.rds")
@@ -55,23 +56,24 @@ pars <- cowflu:::cowflu_inputs(
     likelihood_choice = "survival"))
 
 ## Set priors
+ prior <- monty::monty_dsl({
+   alpha ~ Uniform(min = 0, max = 0.1)
+   beta ~ Uniform(min = 0.05, max = 3) #maybe 1 and 2.5
+   gamma ~ Uniform(min = 0.05, max = 2) #0 and 1
+   sigma ~ Uniform(min = 0.05, max = 2) #0 and 2
+   asc_rate ~ Beta(a = 1, b = 1)
+   #dispersion ~ Exponential(mean = 1)
+ })
+
+#20241012-144052-ac490bf5
 # prior <- monty::monty_dsl({
 #   alpha ~ Beta(a = 1, b = 25)
-#   beta ~ Uniform(min = 0.05, max = 4) #maybe 1 and 2.5
-#   gamma ~ Uniform(min = 0.05, max = 4) #0 and 1
-#   sigma ~ Uniform(min = 0.05, max = 5) #0 and 2
+#   beta ~ Uniform(min = 1, max = 3) #maybe 1 and 2.5
+#   gamma ~ Uniform(min = 0.05, max = 2) #0 and 1
+#   sigma ~ Uniform(min = 0.05, max = 4) #0 and 2
 #   asc_rate ~ Beta(a = 5, b = 1)
 #   #dispersion ~ Exponential(mean = 1)
 # })
-
-prior <- monty::monty_dsl({
-  alpha ~ Beta(a = 1, b = 25)
-  beta ~ Uniform(min = 1, max = 3) #maybe 1 and 2.5
-  gamma ~ Uniform(min = 0.05, max = 2) #0 and 1
-  sigma ~ Uniform(min = 0.05, max = 4) #0 and 2
-  asc_rate ~ Beta(a = 5, b = 1)
-  #dispersion ~ Exponential(mean = 1)
-})
 
 ## Pack the priors
 pars_fixed <- pars[-(16:20)]
@@ -84,6 +86,7 @@ prior_packer$pack(pars)
 ## Load data to fit to
 data_outbreaks <- cowflu:::process_data_outbreak(cowflu:::outbreaks_data$weekly_outbreaks_data)
 ## Add extra "NA" weeks to output the model fit to these:
+if(include_NAs){
 ## Generate rows for weeks 1-13
 weeks_1_to_13 <- data.frame(
   day = seq(7, 7 * 13, by = 7),   # Days: 7, 14, 21, ..., 91
@@ -104,7 +107,7 @@ weeks_to_50 <- data.frame(
 
 ## Append the new rows to the original data
 data_outbreaks <- rbind(weeks_1_to_13, data_outbreaks, weeks_to_50)
-
+}
 set.seed(1)
 
 ## Build a particle filter
@@ -123,13 +126,21 @@ likelihood <- dust2::dust_likelihood_monty(filter, prior_packer,
 ## We can combine the prior and the likelihood to create a posterior:
 posterior <- prior + likelihood
 
+## variance-covariance matrix:
+vcv_matrix <- diag( c(0.03, #alpha
+                      0.04, #beta
+                      0.03, #gamma
+                      0.06, #sigma
+                      0.04)  ) #asc_rate
+
 ##Build the sampler
 if(restart){
-  sampler <- monty::monty_sampler_random_walk(diag(5) * step_size_var,
+  sampler <- monty::monty_sampler_random_walk(vcv_matrix, #diag(5) * step_size_var,
                                               rerun_every = rerun_every,
                                               rerun_random = TRUE)  #0.02 was baseline
 }else{
-  sampler <- monty::monty_sampler_random_walk(diag(5) * step_size_var)  #0.02 was baseline
+  sampler <- monty::monty_sampler_random_walk(vcv_matrix  #diag(5) * step_size_var
+                                              )  #0.02 was baseline
 }
 
 
