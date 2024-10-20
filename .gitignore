@@ -5,6 +5,11 @@
 .Ruserdata
 guides
 hipercow
+Manual_samples_complete
+hpc_workflows
+src/compare-measures-incidence/Full_samples_03_incidence.rds
+src/compare-measures-survival/Full_samples_02.rds
+src/infection-tree-survival/Full_samples_02.rds
 
 # ---VVV--- added by orderly ---VVV----------------
 # Don't manually edit content between these markers
