@@ -40,9 +40,9 @@ tic()
 ## Set parameters
 pars <- cowflu:::cowflu_inputs(
   alpha = 0.05,
-  beta = 2.45,
+  beta = 1.45,
   gamma = 1.4,
-  sigma = 3.5,
+  sigma = 1.5,
   asc_rate = 0.6,
   dispersion = 1,
   cowflu:::cowflu_fixed_inputs(
