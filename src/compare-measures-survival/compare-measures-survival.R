@@ -28,7 +28,7 @@ orderly2::orderly_artefact(description = "The parameters used", "parameters_used
 ##################################################################################################
 library(ggplot2)
 library(dplyr)
-library(cowplot)
+#library(cowplot)
 library(cowflu)
 library(monty)
 library(tictoc)
