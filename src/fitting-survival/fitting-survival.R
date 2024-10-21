@@ -121,17 +121,18 @@ filter <- dust2::dust_filter_create(cowflu:::cows(), 0, #0 is "time_start"
 ##  "outbreak_herd" "outbreak_region"
 likelihood <- dust2::dust_likelihood_monty(filter, prior_packer,
                                            save_state = FALSE,
-                                           save_history = c("outbreak_region", "infected_herds_region"))
+                                           save_history = c("outbreak_region", "infected_herds_region",
+                                                            "probability_test_pass_region"))
 
 ## We can combine the prior and the likelihood to create a posterior:
 posterior <- prior + likelihood
 
 ## variance-covariance matrix:
-vcv_matrix <- diag( c(0.03, #alpha
+vcv_matrix <- diag( c(0.005, #alpha
                       0.04, #beta
                       0.03, #gamma
-                      0.06, #sigma
-                      0.04)  ) #asc_rate
+                      0.05, #sigma
+                      0.02)  ) #asc_rate
 
 ##Build the sampler
 if(restart){
