@@ -23,6 +23,9 @@ orderly2::orderly_artefact(description = "Fits to data", "Fit_to_data/Infected_P
 
 orderly2::orderly_artefact(description = "Fits to data", "Fit_to_data/Step_Declared_Infected_Herds_1.png")
 orderly2::orderly_artefact(description = "Fits to data", "Fit_to_data/Step_Declared_Infected_Herds_2.png")
+
+orderly2::orderly_artefact(description = "Fits to data", "Fit_to_data/Probability_of_test_1.png")
+orderly2::orderly_artefact(description = "Fits to data", "Fit_to_data/Probability_of_test_2.png")
 ##################################################################################################
 library(cowflu)
 library(dust2)
@@ -119,6 +122,7 @@ filter <- dust2::dust_filter_create(cowflu:::cows(), 0, #0 is "time_start"
 ## History save options are:
 ##  "S_herd"  "S_region" "E_herd" "E_region"  "I_herd"  "I_region"  "R_herd"  "R_region"
 ##  "outbreak_herd" "outbreak_region"
+
 likelihood <- dust2::dust_likelihood_monty(filter, prior_packer,
                                            save_state = FALSE,
                                            save_history = c("outbreak_region", "infected_herds_region",
@@ -369,8 +373,70 @@ for(i in 1:length(plot_indices)){
   file_path <- sprintf("Fit_to_data/Step_Declared_Infected_Herds_%s.png", i)
   ggsave(filename = file_path, plot = my_plot, width = 1280/96, height = 720/96, dpi = 200)
 }
+##################################################################################################
+## Output the probability of a positive test
+plot_indices <- list(first = c(1,25), second = c(26,48))
 
+for(i in 1:length(plot_indices)){
+  regions_to_plot <- plot_indices[[i]]
+  regions_to_plot <- regions_to_plot[1]:regions_to_plot[2]
+  n_states <- length(regions_to_plot)
 
+  ## Extract the  data across all chains and iterations
+  I_data <- samples$observations$history[97:144,,,]
+  n_timepoints <- dim(I_data)[2]
+  ## Reshape the array by collapsing dimensions 3 and 4
+  I_data <- array(I_data, dim = c(48, n_timepoints, n_samples * n_chains))
+  I_data <- I_data[regions_to_plot, , ]
+  ## Initialize an empty list to store data frames for each state
+  data_list <- list()
+  ## Loop over each state and calculate summary statistics
+  for (state in 1:n_states) {
+    ## Extract data for the current state
+    state_data <- I_data[state, , ]
+    ## Calculate mean, lower, and upper CI across particles for each time point
+    state_summary <- apply(state_data, 1, function(x) {
+      mean_val <- mean(x)
+      ci_low <- quantile(x, 0.025)
+      ci_high <- quantile(x, 0.975)
+      return(c(mean = mean_val, lower_ci = ci_low, upper_ci = ci_high))
+    })
+    ## Convert to a data frame
+    state_df <- as.data.frame(t(state_summary))
+    ## Add time and state information
+    state_df$Time <- data_week$week
+    state_df$US_state <- state
+    ## Append to the list
+    data_list[[state]] <- state_df
+  }
+
+  ## Combine all state data frames into one data frame
+  result_df <- dplyr::bind_rows(data_list)
+
+  ## Rename columns
+  colnames(result_df) <- c("mean_infected", "lower_ci_infected", "upper_ci_infected", "Time", "US_state")
+  ## Add number of herds per state:
+  result_df$total_herds <- cowflu:::usda_data$n_herds_per_region[result_df$US_state]
+  ## Replace the US_state numbers with actual names
+  result_df$US_state <- factor(result_df$US_state, levels = 1:n_states, labels = cowflu:::usda_data$US_States[regions_to_plot])
+
+  ## Create the plot
+  ggplot(result_df, aes(x = Time, y = mean_infected, group = US_state)) +
+    geom_line() +
+    geom_ribbon(aes(ymin = lower_ci_infected, ymax = upper_ci_infected), alpha = 0.2) +
+    facet_wrap(~ US_state, ncol = 5, scales = "free_y") +
+    theme_minimal() +
+    labs(x = "Time (Weeks)", y = "Probability of passing border test", title = "Probability of passing border test per state") +
+    theme(strip.text = element_text(size = 8)) +
+    ylim(c(0.0,1.01)) +
+    theme(
+      plot.background = element_rect(fill = "white", color = NA),
+      panel.background = element_rect(fill = "white", color = NA)
+    ) -> my_plot
+
+  file_path <- sprintf("Fit_to_data/Probability_of_test_%s.png", i)
+  ggsave(filename = file_path, plot = my_plot, width = 1280/96, height = 720/96, dpi = 200)
+}
 
 ##################################################################################################
 ##################################################################################################
