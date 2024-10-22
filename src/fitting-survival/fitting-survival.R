@@ -208,7 +208,7 @@ for(i in 1:length(plot_indices)){
   n_states <- length(regions_to_plot)
 
   ## Extract the  data across all chains and iterations
-  I_data <- samples$observations$history[49:96,,,]
+  I_data <- samples$observations$trajectories[49:96,,,]
   n_timepoints <- dim(I_data)[2]
   ## Reshape the array by collapsing dimensions 3 and 4
   I_data <- array(I_data, dim = c(48, n_timepoints, n_samples * n_chains))
@@ -293,7 +293,7 @@ for(i in 1:length(plot_indices)){
   n_states <- length(regions_to_plot)
 
   ## Extract the  data across all chains and iterations
-  I_data <- samples$observations$history[1:48,,,]
+  I_data <- samples$observations$trajectories[1:48,,,]
   n_timepoints <- dim(I_data)[2]
   ## Reshape the array by collapsing dimensions 3 and 4
   I_data <- array(I_data, dim = c(48, n_timepoints, n_samples * n_chains))
@@ -383,7 +383,7 @@ for(i in 1:length(plot_indices)){
   n_states <- length(regions_to_plot)
 
   ## Extract the  data across all chains and iterations
-  I_data <- samples$observations$history[97:144,,,]
+  I_data <- samples$observations$trajectories[97:144,,,]
   n_timepoints <- dim(I_data)[2]
   ## Reshape the array by collapsing dimensions 3 and 4
   I_data <- array(I_data, dim = c(48, n_timepoints, n_samples * n_chains))
