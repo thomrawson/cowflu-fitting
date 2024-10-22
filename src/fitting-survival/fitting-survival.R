@@ -125,7 +125,7 @@ filter <- dust2::dust_filter_create(cowflu:::cows(), 0, #0 is "time_start"
 
 likelihood <- dust2::dust_likelihood_monty(filter, prior_packer,
                                            save_state = FALSE,
-                                           save_history = c("outbreak_region", "infected_herds_region",
+                                           save_trajectories = c("outbreak_region", "infected_herds_region",
                                                             "probability_test_pass_region"))
 
 ## We can combine the prior and the likelihood to create a posterior:
