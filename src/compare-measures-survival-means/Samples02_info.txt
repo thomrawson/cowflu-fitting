@@ -1,0 +1,14 @@
+ n_samples <- 4000 
+ n_particles <- 320 
+ n_chains <- 100
+ dt <- 1
+ step_size_var <- 0.03
+ NAs_in_data <- TRUE
+ Observations were saved
+
+Priors;
+   alpha ~ Beta(a = 1, b = 40)
+   beta ~ Uniform(min = 0.05, max = 3) #maybe 1 and 2.5
+   gamma ~ Uniform(min = 0.05, max = 3) #0 and 1
+   sigma ~ Uniform(min = 0.05, max = 5) #0 and 2
+   asc_rate ~ Beta(a = 5, b = 1)

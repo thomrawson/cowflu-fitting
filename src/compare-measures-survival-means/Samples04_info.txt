@@ -1,0 +1,17 @@
+ n_samples <- 4000 
+ n_particles <- 320 
+ n_chains <- 50
+ dt <- 1
+ step_size_var <- 0.03
+ NAs_in_data <- TRUE
+ Observations were saved
+
+Priors;
+
+   alpha ~ Uniform(min = 0, max = 0.1)
+   beta ~ Uniform(min = 0.05, max = 3) #maybe 1 and 2.5
+   gamma ~ Uniform(min = 0.05, max = 2) #0 and 1
+   sigma ~ Uniform(min = 0.05, max = 2) #0 and 2
+   asc_rate ~ Beta(a = 1, b = 1)
+
+Far tighter priors and beta in the model code was replaced with beta/gamma (this is an error and is now changed to beta*gamma, meaning that the "beta" being fit is actually beta/gamma.

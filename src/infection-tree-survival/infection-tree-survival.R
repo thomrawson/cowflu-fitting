@@ -1,6 +1,7 @@
 ##################################################################################################
 orderly2::orderly_strict_mode()
-orderly2::orderly_resource("Full_samples_02.rds")
+#orderly2::orderly_resource("Full_samples_02.rds")
+orderly2::orderly_resource("Full_samples_IDM.rds")
 orderly2::orderly_resource("data_outbreaks.rds")
 orderly2::orderly_resource("Samples02_info.txt")
 # orderly2::orderly_parameters(n_samples = 100, n_particles = 8, n_chains = 2, step_size_var = 0.03, dt = 1,
@@ -23,9 +24,12 @@ orderly2::orderly_artefact(description = "MCMC diagnostics", "mcmc_diagnostics.t
 orderly2::orderly_artefact(description = "Fits to data", "Fit_to_data/Infected_Herds_1.png")
 orderly2::orderly_artefact(description = "Fits to data", "Fit_to_data/Infected_Proportion_Herds_1.png")
 orderly2::orderly_artefact(description = "Fits to data", "Fit_to_data/Infected_Herds_2.png")
+orderly2::orderly_artefact(description = "Fits to data", "Fit_to_data/Infected_Herds_3.png")
 orderly2::orderly_artefact(description = "Fits to data", "Fit_to_data/Infected_Proportion_Herds_2.png")
+orderly2::orderly_artefact(description = "Fits to data", "Fit_to_data/Infected_Proportion_Herds_3.png")
 orderly2::orderly_artefact(description = "Fits to data", "Fit_to_data/Step_Declared_Infected_Herds_1.png")
 orderly2::orderly_artefact(description = "Fits to data", "Fit_to_data/Step_Declared_Infected_Herds_2.png")
+orderly2::orderly_artefact(description = "Fits to data", "Fit_to_data/Step_Declared_Infected_Herds_3.png")
 
 orderly2::orderly_artefact(description = "Prior/Posterior comparison", "Prior_posterior/Alpha.png")
 orderly2::orderly_artefact(description = "Prior/Posterior comparison", "Prior_posterior/Beta.png")
@@ -34,11 +38,18 @@ orderly2::orderly_artefact(description = "Prior/Posterior comparison", "Prior_po
 orderly2::orderly_artefact(description = "Prior/Posterior comparison", "Prior_posterior/asc_rate.png")
 
 orderly2::orderly_artefact(description = "Histogram of generation time", "Generation_time.png")
+orderly2::orderly_artefact(description = "Probability of success in week 46", "Prob_df.rds")
 
 for(j in 1:sum(cowflu:::outbreaks_data$weekly_outbreaks_data$Positive_Tests > 0) ){
   orderly2::orderly_artefact(description = "Infection trees", sprintf("Infection_trees/state_weeks/Outbreak_%s.png", j))
   orderly2::orderly_artefact(description = "Infection trees", sprintf("Infection_trees/state/Outbreak_%s.png", j))
 }
+
+animations_to_export <- c(4, 29, 43, 56, 71, 76)
+for(j in animations_to_export ){
+  orderly2::orderly_artefact(description = "Infection trees", sprintf("Infection_trees/animations/Tree_%s.gif", j) )
+}
+
 ##################################################################################################
 library(ggplot2)
 library(dplyr)
@@ -49,8 +60,11 @@ library(sf)
 library(stringr)
 library(coda)
 library(monty)
+library(gganimate)
+library(gifski)
 ## Load the samples
-samples <- readRDS("Full_samples_02.rds")
+#samples <- readRDS("Full_samples_02.rds")
+samples <- readRDS("Full_samples_IDM.rds")
 ##################################################################################################
 ## MCMC diagnostics:
 ess <- coda::effectiveSize(coda::as.mcmc.list(samples))
@@ -70,9 +84,35 @@ tryCatch({
 write.table(results, file = "mcmc_diagnostics.txt", sep = "\t", col.names = TRUE, row.names = TRUE)
 ##################################################################################################
 ##################################################################################################
-## Fit to data plots:
-total_steps <- dim(samples$observations$history)[3]
+## Add in "Probability of passing test" table here for week, 46 (w/b Nov 4th 2024)
+# 09/09 is week 38
+total_steps <- dim(samples$observations$trajectories)[3]
 burnin_steps <- 401
+## Extract the  data across all chains and iterations
+Prob_data <- samples$observations$trajectories[97:144,,burnin_steps:total_steps,]
+n_timepoints <- dim(Prob_data)[2]
+n_samples <- dim(Prob_data)[3]
+n_chains <- dim(Prob_data)[4]
+## Reshape the array by collapsing dimensions 3 and 4
+Prob_data <- array(Prob_data, dim = c(48, n_timepoints, n_samples * n_chains))
+## Just take week 46 for now:
+Prob_data <- Prob_data[,46,]
+
+Prob_df <- data.frame(
+  mean = apply(Prob_data, 1, mean),
+  lower_ci = apply(Prob_data, 1, function(x) quantile(x, 0.025)),
+  upper_ci = apply(Prob_data, 1, function(x) quantile(x, 0.975))
+)
+
+Prob_df$State <- cowflu:::usda_data$US_States
+saveRDS(Prob_df, file = "Prob_df.rds")
+
+##Clean up
+rm(Prob_data, Prob_df)
+##################################################################################################
+##################################################################################################
+## Fit to data plots:
+
 
 ## Load data:
 data_outbreaks <- readRDS("data_outbreaks.rds")
@@ -80,16 +120,17 @@ data_week <- dust2::dust_filter_data(data_outbreaks, time = "week")
 ## Here we plot the assoc. trajectories too.
 ## Fit to data plotting
 dir.create("Fit_to_data")
-plot_indices <- list(first = c(1,25), second = c(26,48))
+## "Third" is just some of the most interesting ones (to my mind)
+plot_indices <- list(first = c(1:25), second = c(26:48),
+                     third = c(2,4,5,7,8,10,13,14,15,20,21,23,28,29,30,31,33,34,36,37,39,41,46,47,48))
 
 ## First, the TRUE number of infected herds per state:
 for(i in 1:length(plot_indices)){
   regions_to_plot <- plot_indices[[i]]
-  regions_to_plot <- regions_to_plot[1]:regions_to_plot[2]
   n_states <- length(regions_to_plot)
 
   ## Extract the  data across all chains and iterations
-  I_data <- samples$observations$history[49:96,,burnin_steps:total_steps,]
+  I_data <- samples$observations$trajectories[49:96,,burnin_steps:total_steps,]
   n_timepoints <- dim(I_data)[2]
   n_samples <- dim(I_data)[3]
   n_chains <- dim(I_data)[4]
@@ -124,7 +165,7 @@ for(i in 1:length(plot_indices)){
   ## Rename columns
   colnames(result_df) <- c("mean_infected", "lower_ci_infected", "upper_ci_infected", "Time", "US_state")
   ## Add number of herds per state:
-  result_df$total_herds <- cowflu:::usda_data$n_herds_per_region[result_df$US_state]
+  result_df$total_herds <- cowflu:::usda_data$n_herds_per_region[regions_to_plot[result_df$US_state]]
   ## Replace the US_state numbers with actual names
   result_df$US_state <- factor(result_df$US_state, levels = 1:n_states, labels = cowflu:::usda_data$US_States[regions_to_plot])
 
@@ -147,9 +188,9 @@ for(i in 1:length(plot_indices)){
     geom_ribbon(aes(ymin = lower_ci_infected/total_herds, ymax = upper_ci_infected/total_herds), alpha = 0.2) +
     facet_wrap(~ US_state, ncol = 5, scales = "free_y") +
     theme_minimal() +
+    ylim(c(0,1)) +
     labs(x = "Time (Weeks)", y = "Infected Proportion of Herds", title = "Infected Proportion of Herds by state") +
     theme(strip.text = element_text(size = 8)) +
-    ylim(c(0,1)) +
     theme(
       plot.background = element_rect(fill = "white", color = NA),
       panel.background = element_rect(fill = "white", color = NA)
@@ -170,14 +211,15 @@ real_outbreaks_data <- data_week %>%
 real_outbreaks_data <- real_outbreaks_data[,c(2,3,4)]
 colnames(real_outbreaks_data) <- c("Time", "outbreak_detected", "US_state")
 
-plot_indices <- list(first = c(1,25), second = c(26,48))
+plot_indices <- list(first = c(1:25), second = c(26:48),
+                     third = c(2,4,5,7,8,10,13,14,15,20,21,23,28,29,30,31,33,34,36,37,39,41,46,47,48))
+
 for(i in 1:length(plot_indices)){
   regions_to_plot <- plot_indices[[i]]
-  regions_to_plot <- regions_to_plot[1]:regions_to_plot[2]
   n_states <- length(regions_to_plot)
 
   ## Extract the  data across all chains and iterations
-  I_data <- samples$observations$history[1:48,,,]
+  I_data <- samples$observations$trajectories[1:48,,,]
   n_timepoints <- dim(I_data)[2]
   ## Reshape the array by collapsing dimensions 3 and 4
   I_data <- array(I_data, dim = c(48, n_timepoints, n_samples * n_chains))
@@ -268,7 +310,7 @@ rm(state_summary, chain, ess, file_path, first_infection, i, I_data, infections,
 dir.create("Prior_posterior")
 ## ALPHA
 
-parameter_data <- data.frame( value = rbeta(100000, shape1 = 1, shape2 = 40), distr = rep("prior", 100000))
+parameter_data <- data.frame( value = runif(100000, 0.0, 0.1), distr = rep("prior", 100000))
 parameter_data <- rbind(parameter_data, data.frame( value = as.numeric(samples$pars[1, burnin_steps:total_steps,]),
                                                     distr = rep("posterior", (total_steps - burnin_steps + 1)*n_chains)))
 ggplot(parameter_data) +
@@ -302,7 +344,7 @@ file_path <- "Prior_posterior/Beta.png"
 ggsave(filename = file_path, plot = plot, width = 1280/192, height = 720/192, dpi = 200)
 
 ## Gamma
-parameter_data <- data.frame( value = runif(100000, 0.05, 3), distr = rep("prior", 100000))
+parameter_data <- data.frame( value = runif(100000, 0.05, 2), distr = rep("prior", 100000))
 parameter_data <- rbind(parameter_data, data.frame( value = as.numeric(samples$pars[3, burnin_steps:total_steps,]),
                                                     distr = rep("posterior", (total_steps - burnin_steps + 1)*n_chains)))
 ggplot(parameter_data) +
@@ -319,7 +361,7 @@ file_path <- "Prior_posterior/Gamma.png"
 ggsave(filename = file_path, plot = plot, width = 1280/192, height = 720/192, dpi = 200)
 
 ## Sigma
-parameter_data <- data.frame( value = runif(100000, 0.05, 5), distr = rep("prior", 100000))
+parameter_data <- data.frame( value = runif(100000, 0.05, 2), distr = rep("prior", 100000))
 parameter_data <- rbind(parameter_data, data.frame( value = as.numeric(samples$pars[4, burnin_steps:total_steps,]),
                                                     distr = rep("posterior", (total_steps - burnin_steps + 1)*n_chains)))
 ggplot(parameter_data) +
@@ -336,7 +378,7 @@ file_path <- "Prior_posterior/Sigma.png"
 ggsave(filename = file_path, plot = plot, width = 1280/192, height = 720/192, dpi = 200)
 
 ## Asc_rate
-parameter_data <- data.frame( value = rbeta(100000, shape1 = 5, shape2 = 1), distr = rep("prior", 100000))
+parameter_data <- data.frame( value = rbeta(100000, shape1 = 1, shape2 = 1), distr = rep("prior", 100000))
 parameter_data <- rbind(parameter_data, data.frame( value = as.numeric(samples$pars[5, burnin_steps:total_steps,]),
                                                     distr = rep("posterior", (total_steps - burnin_steps + 1)*n_chains)))
 ggplot(parameter_data) +
@@ -403,7 +445,7 @@ Probabilities_of_Source <- data.frame(State = rep(tolower(cowflu:::usda_data$US_
 for(i in 1:length(Probabilities_of_Source$State)){
   n_state <- 48 + which(tolower(cowflu:::usda_data$US_States) == Probabilities_of_Source$State[i])
   n_week <- Probabilities_of_Source$Week[i]
-  Probabilities_of_Source$Currently_Infected_Herds[i] <- mean(samples$observations$history[n_state, n_week,201:4000,])
+  Probabilities_of_Source$Currently_Infected_Herds[i] <- mean(samples$observations$trajectories[n_state, n_week,201:4000,])
   Probabilities_of_Source$prop_infected[i] <- Probabilities_of_Source$Currently_Infected_Herds[i]/cowflu:::usda_data$n_herds_per_region[n_state-48]
 }
 
@@ -651,6 +693,165 @@ p <- p +
 # 10. Save the plot
 file_path <- sprintf("Infection_trees/state/Outbreak_%s.png", j)
 ggsave(filename = file_path, plot = p, bg = "white", width = 1280/96, height = 720/96, dpi = 200)
+
+
+}
+###############################################################################
+
+## And now some animated plots
+dir.create("Infection_trees/animations")
+
+#for(j in 1:length(outbreaks_data$State)){
+for(j in animations_to_export){
+
+  Outbreak <- outbreaks_data[j,]
+  Weeks_to_consider <- Outbreak$Week - 1:8
+  Probabilities_of_Source <- data.frame(State = rep(tolower(cowflu:::usda_data$US_States), length(Weeks_to_consider )),
+                                        Week = sort(rep(Weeks_to_consider, length(cowflu:::usda_data$US_States))),
+                                        Probability_of_source = rep(NA, length(cowflu:::usda_data$US_States)*length(Weeks_to_consider)) ,
+                                        Currently_Infected_Herds = rep(NA, length(cowflu:::usda_data$US_States)*length(Weeks_to_consider)) )
+  ## Populate the "currently infected" column:
+  for(i in 1:length(Probabilities_of_Source$State)){
+    n_state <- 48 + which(tolower(cowflu:::usda_data$US_States) == Probabilities_of_Source$State[i])
+    n_week <- Probabilities_of_Source$Week[i]
+    Probabilities_of_Source$Currently_Infected_Herds[i] <- mean(samples$observations$trajectories[n_state, n_week,201:4000,])
+    Probabilities_of_Source$prop_infected[i] <- Probabilities_of_Source$Currently_Infected_Herds[i]/cowflu:::usda_data$n_herds_per_region[n_state-48]
+  }
+
+  ## Populate the probabilities:
+  for(i in 1:length(Probabilities_of_Source$State)){
+    gen_time_prob <- approx(gen_time_kde$x, gen_time_kde$y, Outbreak$Week - Probabilities_of_Source$Week[i])$y
+    #Probability that the source exports, multiplied by prob it's to the outbreak destination state
+    # Note this currently doesn't capture the question about whether or not an infected cow actually got through the border
+    # Technically coming from within SHOULD be more likely...
+    export_prob <- cowflu:::movement$p_region_export[which(tolower(cowflu:::usda_data$US_States) == Probabilities_of_Source$State[i])] * (Probabilities_of_Source$Currently_Infected_Herds[i]/cowflu:::usda_data$n_herds_per_region[which(tolower(cowflu:::usda_data$US_States) == Probabilities_of_Source$State[i])])
+    Probabilities_of_Source$Probability_of_source[i] <- gen_time_prob * export_prob
+  }
+
+  ## Scale Probability_of_source column so it sums to 1:
+  Probabilities_of_Source$Probability_of_source <- Probabilities_of_Source$Probability_of_source/sum(Probabilities_of_Source$Probability_of_source)
+
+  ## Order the data frame so highest probabilities are at the top:
+  Probabilities_of_Source <- Probabilities_of_Source[order(Probabilities_of_Source$Probability_of_source, decreasing = TRUE),]
+
+
+  ## Sum the Probabilities of source data_frame over week:
+  Probabilities_of_Source <- Probabilities_of_Source %>%
+    group_by(State) %>%
+    summarize(
+      # Sum Probability_of_source over all weeks for each state
+      Probability_of_source = sum(Probability_of_source),
+
+      # Get the row with the highest Week for Currently_Infected_Herds and prop_infected
+      Currently_Infected_Herds = Currently_Infected_Herds[which.max(Week)],
+      prop_infected = prop_infected[which.max(Week)]
+    )
+
+  ## Order the data frame so highest probabilities are at the top:
+  Probabilities_of_Source <- Probabilities_of_Source[order(Probabilities_of_Source$Probability_of_source, decreasing = TRUE),]
+
+  ## Sample 300 rows based on Probability_of_source column
+  sampled_df <- Probabilities_of_Source[sample(
+    1:nrow(Probabilities_of_Source),     # Indices of the rows
+    size = 300,                          # Number of samples
+    replace = TRUE,                      # With replacement, since Probability_of_source sums to 1
+    prob = Probabilities_of_Source$Probability_of_source  # Sampling probabilities
+  ), ]
+
+  # 1. Get map data for US without Alaska and Hawaii
+  us_states <- map_data("state")
+
+  # 2. Prepare outbreak data and coordinates
+  outbreak_state <- Outbreak$State[1]
+  outbreak_week <- Outbreak$Week[1]
+
+  # Coordinates of the outbreak state
+  outbreak_coords <- us_states %>%
+    filter(region == outbreak_state) %>%
+    summarize(lat = mean(lat), long = mean(long))
+  outbreak_coords$lat <- outbreak_coords$lat + 0.001
+  outbreak_coords$long <- outbreak_coords$long + 0.001
+
+  # 3. Add a frame number to sampled_df to indicate the sequence of each source appearing
+  sampled_df <- sampled_df %>%
+    mutate(frame = row_number())  # Each source appears in its own frame
+
+  # 4. Get coordinates for each state in sampled_df and merge with probabilities
+  source_coords <- us_states %>%
+    filter(region %in% sampled_df$State) %>%
+    group_by(region) %>%
+    summarize(lat = mean(lat), long = mean(long)) %>%
+    left_join(sampled_df, by = c("region" = "State"))
+
+  # 5. Add curvature values and cumulative appearance effect
+  source_coords <- source_coords %>%
+    mutate(curvature = case_when(
+      frame %% 3 == 1 ~ 0.2,       # Apply different curvature to each frame
+      frame %% 3 == 2 ~ -0.2,
+      TRUE ~ 0.4
+    ))
+
+  source_coords$curvature <- source_coords$curvature + rnorm(nrow(source_coords), mean = 0, sd = 0.03)
+
+  # 6. Prepare base map with infection data
+  infected_to_fill <- Probabilities_of_Source
+  us_states <- us_states %>%
+    left_join(infected_to_fill[, c("State", "prop_infected")], by = c("region" = "State"))
+
+  # 7. Set up the ggplot for animation
+  p <- ggplot() +
+    # Map with infection levels
+    geom_polygon(data = us_states, aes(x = long, y = lat, group = group, fill = prop_infected),
+                 color = "black") +
+    coord_fixed(1.3) +
+    scale_fill_gradient(low = "white", high = "red", limits = c(0, 1)) +
+    theme_minimal() +
+
+    # Mark outbreak state with a star
+    geom_point(data = outbreak_coords, aes(x = long, y = lat), shape = 8, size = 6, color = "red") +
+    geom_text_repel(data = outbreak_coords, aes(x = long, y = lat, label = str_to_title(outbreak_state)),
+                    nudge_y = 1, size = 6)
+
+    # Arrows showing each source to the outbreak location
+  for(k in 1:nrow(sampled_df)){
+    p <- p + geom_curve(data = source_coords[k,], aes(x = long, y = lat, xend = outbreak_coords$long, yend = outbreak_coords$lat,
+                                         group = frame),
+               arrow = arrow(length = unit(0.3, "cm")),
+               curvature = source_coords$curvature[k],
+               alpha = 0.09,
+               size = 1.5)
+  }
+
+  source_points <- unique(source_coords[,1:4])
+    # Points and labels for source states
+    p <- p + geom_point(data = source_points, aes(x = long, y = lat), color = "blue", size = 5) +
+    #geom_text(data = source_points, aes(x = long, y = lat, label = str_to_title(region)),
+    #                size = 3) +
+
+    # Customize color gradient and labels
+    scale_color_gradient(low = "lightblue", high = "darkblue") +
+    labs(title = sprintf("    %s - Week %s (%s)", str_to_title(outbreak_state), outbreak_week, Outbreak$Week_Beginning),
+         color = "Probability of Source",
+         fill = "Proportion infected     ") +
+    theme_void() +
+    theme(legend.position = "bottom",
+          legend.box = "vertical",
+          plot.title = element_text(size = rel(3)),         # Double title size
+          legend.title = element_text(size = rel(2.5)),       # Double legend title size
+          legend.text = element_text(size = rel(2)),        # Double legend text size
+          legend.key.height = unit(1.3, "cm"),                # Increase legend height
+          legend.key.width = unit(2.5, "cm") ) +
+    guides(color = guide_colourbar(order = 1), fill = guide_colourbar(order = 2))
+
+  # 8. Add gganimate to build the frames
+  p <- p +
+    transition_reveal(frame) +  # Frames sequentially reveal each source
+    ease_aes("linear")
+
+  # 9. Save as an animated GIF
+  animate(p, width = 1280, height = 720,
+          fps = 10, duration = 30,
+          renderer = gifski_renderer(sprintf("Infection_trees/animations/Tree_%s.gif", j)) )
 
 
 }
